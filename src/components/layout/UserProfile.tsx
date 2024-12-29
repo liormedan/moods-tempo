@@ -10,36 +10,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Settings, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { signOut } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
-interface UserProfileProps {
-  name?: string;
-  email?: string;
-  avatarUrl?: string;
-}
-
-const UserProfile = ({
-  name = "משתמש אנונימי",
-  email = "guest@example.com",
-  avatarUrl,
-}: UserProfileProps) => {
+const UserProfile = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: "שגיאה",
+        description: "אירעה שגיאה בהתנתקות",
+        variant: "destructive",
+      });
+    } else {
+      navigate("/login");
+    }
+  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="focus:outline-none">
         <div className="flex items-center gap-2">
           <div className="text-right hidden md:block">
-            <p className="text-sm font-medium">{name}</p>
-            <p className="text-xs text-muted-foreground">{email}</p>
+            <p className="text-sm font-medium text-white">{user?.email}</p>
+            <p className="text-xs text-gray-400">משתמש רשום</p>
           </div>
           <Avatar className="h-8 w-8">
-            {avatarUrl ? (
-              <AvatarImage src={avatarUrl} alt={name} />
-            ) : (
-              <AvatarFallback className="text-sm">
-                {name.slice(0, 2)}
-              </AvatarFallback>
-            )}
+            <AvatarFallback className="text-sm bg-gray-800 text-white">
+              {user?.email?.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
         </div>
       </DropdownMenuTrigger>
@@ -58,7 +62,7 @@ const UserProfile = ({
           הגדרות
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2">
+        <DropdownMenuItem className="gap-2" onClick={handleSignOut}>
           <LogOut className="h-4 w-4" />
           התנתק
         </DropdownMenuItem>

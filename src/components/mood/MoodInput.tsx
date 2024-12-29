@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/lib/auth";
+import { createMoodEntry } from "@/lib/supabase";
 import {
   AlertCircle,
   Brain,
@@ -72,6 +74,7 @@ const MoodInput = ({
   note = "",
 }: MoodInputProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [moodData, setMoodData] = React.useState<MoodData>(initialData);
   const [moodNote, setMoodNote] = React.useState(note);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -93,17 +96,26 @@ const MoodInput = ({
   };
 
   const handleSubmit = async () => {
+    if (!user) {
+      toast({
+        title: "שגיאה",
+        description: "יש להתחבר כדי לשמור מצב רוח",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const savedMoods = JSON.parse(localStorage.getItem("moods") || "[]");
-      const newMood = {
+      const entry = {
+        user_id: user.id,
         ...moodData,
         note: moodNote,
-        date: currentTime.toISOString(),
       };
-      savedMoods.push(newMood);
-      localStorage.setItem("moods", JSON.stringify(savedMoods));
+
+      const { error } = await createMoodEntry(entry);
+      if (error) throw error;
 
       toast({
         title: "נשמר בהצלחה",
@@ -122,10 +134,10 @@ const MoodInput = ({
       setTimeout(() => {
         setShowSuccess(false);
       }, 3000);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "שגיאה",
-        description: "אירעה שגיאה בשמירת מצב הרוח",
+        description: error.message,
         variant: "destructive",
       });
     } finally {

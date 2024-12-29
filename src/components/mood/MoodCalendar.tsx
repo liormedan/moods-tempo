@@ -7,6 +7,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getMoodEntries } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 type Mood = "happy" | "neutral" | "sad" | "angry";
 
@@ -28,21 +30,52 @@ const moodColors = {
   angry: "bg-red-200",
 };
 
-const defaultEntries: MoodEntry[] = [
-  {
-    date: new Date(2024, 0, 1),
-    mood: "happy",
-    note: "Great start to the year!",
-  },
-  { date: new Date(2024, 0, 2), mood: "neutral", note: "Regular day" },
-  { date: new Date(2024, 0, 3), mood: "sad", note: "Feeling down" },
-  { date: new Date(2024, 0, 4), mood: "angry", note: "Frustrated with work" },
-];
+const getMoodType = (value: number): Mood => {
+  if (value >= 8) return "happy";
+  if (value >= 5) return "neutral";
+  if (value >= 3) return "sad";
+  return "angry";
+};
 
 const MoodCalendar = ({
-  entries = defaultEntries,
+  entries: propEntries,
   onDateSelect = () => {},
 }: MoodCalendarProps) => {
+  const { user } = useAuth();
+  const [entries, setEntries] = React.useState<MoodEntry[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (propEntries) {
+      setEntries(propEntries);
+      setLoading(false);
+      return;
+    }
+
+    const loadEntries = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await getMoodEntries(user.id);
+        if (error) throw error;
+
+        const formattedEntries = data.map((entry) => ({
+          date: new Date(entry.created_at),
+          mood: getMoodType(entry.general_feeling),
+          note: entry.note || undefined,
+        }));
+
+        setEntries(formattedEntries);
+      } catch (error) {
+        console.error("Error loading mood entries:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEntries();
+  }, [user, propEntries]);
+
   const getDayMood = (date: Date): MoodEntry | undefined => {
     return entries.find(
       (entry) =>
@@ -51,6 +84,17 @@ const MoodCalendar = ({
         entry.date.getFullYear() === date.getFullYear(),
     );
   };
+
+  if (loading) {
+    return (
+      <Card className="p-6 w-full max-w-[800px]">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 bg-gray-200 rounded"></div>
+          <div className="h-[400px] bg-gray-100 rounded"></div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 w-full max-w-[800px]">
